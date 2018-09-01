@@ -1,1 +1,3 @@
-# evs-scraper
+# Scraper
+
+This is a Flask application deployed to Heroku
