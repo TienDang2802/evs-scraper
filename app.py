@@ -4,20 +4,15 @@ from flask_mysqldb import MySQL
 from wtforms import Form, StringField, validators, SelectField, PasswordField
 from passlib.hash import sha256_crypt
 from functools import wraps
-import os
-import sys
-from time import sleep
 import uuid
 
 from rq import Worker, Queue, Connection
 
 from worker import conn
 from scrape import scrape
-from send_mail import send_mail, notify_admin, send_mail_attachment
+from send_mail import notify_admin, send_mail_attachment
 
-import json
 from googleplaces import GooglePlaces, types, lang
-import csv
 
 import os
 
@@ -60,7 +55,7 @@ def index():
                     # Passed
                     session['logged_in'] = True
                     session['username'] = username
-
+                    
                     print(session['username'], 'logged in')
                     flash('You are now logged in', 'success')
                     return redirect(url_for('dashboard'))
@@ -93,17 +88,7 @@ def logout():
     session.clear()
     flash('You are now logged out', 'success')
     return redirect(url_for('index'))
-
-# T&Cs
-@app.route('/terms')
-def terms():
-    return render_template('terms.html')
-
-# Imprint
-@app.route('/imprint')
-def imprint():
-    return render_template('imprint.html')
-
+    
 # Register Form Class
 class RegisterForm(Form):
     name = StringField('Name', [validators.Length(min=1, max=50)])
@@ -135,9 +120,9 @@ def register():
 
         # Commit to DB
         mysql.connection.commit()
-
-        print(session['username'], 'created a new user with username:', username)
-
+        
+        #print(session['username'], 'created a new user with username:', username)
+        
         # Close connection
         cur.close()
 
@@ -148,60 +133,8 @@ def register():
 
 # LeadForm
 class LeadForm(Form):
-    queries = StringField('', [validators.Length(min=2, max=100), validators.required()], render_kw={"placeholder": "Bar, Cafe, Gym..."})
-    locations = StringField('', [validators.Length(min=2, max=100), validators.required()], render_kw={"placeholder": "London, New York..."})
-    place_type = SelectField('', choices=[('choose', 'Choose...'),
-                                            ('bakery', 'Bakery'),
-                                            ('bar', 'Bar'),
-                                            ('beauty_salon', 'Beauty salon'),
-                                            ('bicycle_store', 'Bicycle store'),
-                                            ('book_store', 'Book store'),
-                                            ('bowling_alley', 'Bowling alley'),
-                                            ('cafe', 'Cafe'),
-                                            ('campground', 'Campground'),
-                                            ('car_dealer', 'Car dealer'),
-                                            ('car_rental', 'Car rental'),
-                                            ('car_repair', 'Car repair'),
-                                            ('car_wash', 'Car wash'),
-                                            ('clothing_store', 'Clothing store'),
-                                            ('dentist', 'Dentist'),
-                                            ('department_store', 'Department store'),
-                                            ('doctor', 'Doctor'),
-                                            ('electrician', 'Electrician'),
-                                            ('electronics_store', 'Electronics store'),
-                                            ('florist', 'Florist'),
-                                            ('furniture_store', 'Furniture store'),
-                                            ('gym', 'Gym'),
-                                            ('hair_care', 'Hair care'),
-                                            ('hardware_store', 'Hardware store'),
-                                            ('insurance_agency', 'Insurance agency'),
-                                            ('jewelry_store', 'Jewelry store'),
-                                            ('laundry', 'Laundry'),
-                                            ('lawyer', 'Lawyer'),
-                                            ('locksmith', 'Locksmith'),
-                                            ('lodging', 'Lodging'),
-                                            ('meal_delivery', 'Meal delivery'),
-                                            ('meal_takeaway', 'Meal takeaway'),
-                                            ('movie_theater', 'Movie theater'),
-                                            ('moving_company', 'Moving company'),
-                                            ('museum', 'Museum'),
-                                            ('night_club', 'Night club'),
-                                            ('painter', 'Painter'),
-                                            ('pet_store', 'Pet store'),
-                                            ('pharmacy', 'Pharmacy'),
-                                            ('physiotherapist', 'Physiotherapist'),
-                                            ('plumber', 'Plumber'),
-                                            ('real_estate_agency', 'Real estate agency'),
-                                            ('restaurant', 'Restaurant'),
-                                            ('roofing_contractor', 'Roofing contractor'),
-                                            ('school', 'School'),
-                                            ('shoe_store', 'Shoe store'),
-                                            ('shopping_mall', 'Shopping mall'),
-                                            ('spa', 'Spa'),
-                                            ('travel_agency', 'Travel agency'),
-                                            ('veterinary_care', 'Veterinarian'),
-                                            ('zoo', 'Zoo')])
-
+    queries = StringField('', [validators.Length(min=2, max=100), validators.required()], render_kw={"placeholder": "Rental, cottage..."})
+    locations = StringField('', [validators.Length(min=2, max=100), validators.required()], render_kw={"placeholder": "Brighton, Florida..."})
     filters_include = StringField('', [validators.Length(max=100)])
     filters_exclude = StringField('', [validators.Length(max=100)])
     email = StringField('', [validators.Length(max=40)], render_kw={"placeholder": "Email"})
@@ -212,10 +145,6 @@ class LeadForm(Form):
 def dashboard():
     # Create cursor
     cur = mysql.connection.cursor()
-    eval = cur.execute("SELECT evaluation_state FROM users WHERE username = %s", [session['username']])
-
-    #if eval == 1:
-        #return redirect(url_for('thanks'))
 
     form = LeadForm(request.form)
 
@@ -230,9 +159,8 @@ def dashboard():
             city = form.locations.data
             filters_exclude = form.filters_exclude.data
             filters_include = form.filters_include.data
-            place_type = form.place_type.data
             max_leads = request.form.get('max_leads') # check if that works
-
+            
             print(session['username'], ' started a preview for ', query, ' in ', city)
             # prepare data
 
@@ -241,7 +169,8 @@ def dashboard():
             names = []
             count = 0
 
-            google_places = GooglePlaces(os.environ['GP_API_KEY1'])
+            YOUR_API_KEY = os.environ['GP_API_KEY1']
+            google_places = GooglePlaces(YOUR_API_KEY)
 
             query_list = query.split(',')
             city_list = city.split(',')
@@ -255,10 +184,7 @@ def dashboard():
                     if count > 20:
                         break
                     try:
-                        if place_type != 'choose':
-                            query_result = google_places.nearby_search(keyword=query, radius=int(os.environ['SEARCH_RADIUS']), location=city, types=[place_type])
-                        else:
-                            query_result = google_places.nearby_search(keyword=query, radius=int(os.environ['SEARCH_RADIUS']), location=city)
+                        query_result = google_places.nearby_search(keyword=query, radius=int(os.environ['SEARCH_RADIUS']), location=city)
 
                         for place in query_result.places:
                             place.get_details()
@@ -266,13 +192,13 @@ def dashboard():
                             if filters_exclude != '':
                                 if any(word.strip().lower() in place.name.lower() for word in filters_exclude_list):
                                     continue
-
+                                        
                             if filters_include != '':
                                 if any(word.strip().lower() in place.name.lower() for word in filters_include_list):
                                     pass
                                 else:
                                     continue
-
+                                    
                             if place.website != None and place.name not in names and city.strip().lower() in place.formatted_address.lower():
                                 count += 1
                                 print('preview lead count:', count)
@@ -295,26 +221,20 @@ def dashboard():
         if form.validate() != True:
             flash('Something went wrong. Please check everything and submit again.', 'danger')
             return render_template('dashboard.html', form=form)
-        elif 'checkbox' not in request.form:
-            flash('Please confirm that you did a preview and enter a valid email address.', 'danger')
-            return render_template('dashboard.html', form=form)
         else:
             query = form.queries.data
             city = form.locations.data
             email = form.email.data
             filters_exclude = form.filters_exclude.data
             filters_include = form.filters_include.data
-            place_type = form.place_type.data
             max_leads = request.form.get('max_leads')
             user = session['username']
             uid = uuid.uuid1()
 
             q = Queue(connection=conn)
 
-            # catch lat lng error - whats about that? - occurs in scrape.py - messy fix so far
-
-            q.enqueue(notify_admin, query, city, email, filters_include, filters_exclude, place_type, user, max_leads)
-            q.enqueue(scrape, args=(query, city, place_type, filters_exclude, filters_include, max_leads, user, uid), timeout=54000)
+            q.enqueue(notify_admin, query, city, email, filters_include, filters_exclude, user, max_leads)
+            q.enqueue(scrape, args=(query, city, filters_exclude, filters_include, max_leads, user, uid), timeout=36000)
             q.enqueue(send_mail_attachment, email, user, uid)
 
             cur.close()
@@ -333,4 +253,4 @@ def thanks():
 if __name__ == '__main__':
     app.secret_key = os.environ['APP_SECRET_KEY']
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port,debug=os.environ['APP_DEBUG'])
+    app.run(host='0.0.0.0', port=port, debug=os.environ['APP_DEBUG'])

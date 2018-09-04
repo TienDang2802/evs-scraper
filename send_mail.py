@@ -1,9 +1,8 @@
+import os
 import sendgrid
 from sendgrid.helpers.mail import *
 from sendgrid import *
-import os
 import base64
-import urllib.request as urllib
 
 def send_mail(to_email_address, subject, body, cc_email_address = None):
     sg = sendgrid.SendGridAPIClient(apikey=os.environ.get('SENDGRID_API_KEY'))
@@ -67,17 +66,15 @@ def send_mail_attachment(mail_address, user, uid):
     print('Sent email success')
 
 
-def notify_admin(query, city, email, filters_include, filters_exclude, place_type, user, max_leads):
+def notify_admin(query, city, email, filters_include, filters_exclude, user, max_leads):
     to_addr = os.environ.get('NOTIFY_EMAIL')
 
     subject = str(user) + " requested " + str(max_leads) + " leads"
 
-    if place_type == 'choose':
-        place_type = 'n/a'
-
-    body = "Query: " + str(query) + "\nCity: " + str(city) + "\nEmail: " + str(email) + "\nInclude: " + str(filters_include) + "\nExclude: " + str(filters_exclude) + "\nPlace type: " + str(place_type) + "\n\nCheck heroku worker logs"
+    body = "Query: " + str(query) + "\nCity: " + str(city) + "\nEmail: " + str(email) + "\nInclude: " + str(filters_include) + "\nExclude: " + str(filters_exclude) + "\n\nCheck heroku worker logs"
 
     send_mail(to_addr, subject, body)
+
 
 if __name__ == '__main__':
     send_mail()

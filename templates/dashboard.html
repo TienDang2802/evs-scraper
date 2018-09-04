@@ -7,12 +7,11 @@
 
 <div class="row">
 <div class="col-md-6">
-  <p><strong>How the "Intelleadgence" scraper works:</strong></p>
+  <p><strong>How the scraper works:</strong></p>
   <ol>
-    <li>Define your search terms (e.g. gym, cafe, webdesign agency)</li>
-    <li>Choose relevant locations (e.g. Berlin, London, San Francisco)</li>
-    <li>Pick a business type <small><em>(optional)</em></small></li>
-    <li>Filter (include/exclude) certain results <small><em>(optional)</em></small></li>
+    <li>Define your search terms (vacation rental, cottage etc.)</li>
+    <li>Choose locations (Brighton, Florida)</li>
+    <li>Filter (include/exclude) certain results </br> <small><em>(define terms that should appear on the homepage)</em></small></li>
     <li>Preview the top 20 results for your scraping settings</li>
     <li>Select the maximum number of leads you want</li>
     <li>Submit your query...</li>
@@ -22,14 +21,12 @@
 </div>
 
 <div class="col-md-6">
-  <p><strong>What you get:</strong></p>
+  <p><strong>Features:</strong></p>
   <ul>
-    <li>The first 100 leads are free of charge!</li>
     <li>Preview scraper settings until you're happy with the results.</li>
-    <li>Get name, address, website, phone, email, social media and more.</li>
+    <li>Get the most relevant data (name, website, phone) instantly</li>
     <li>"Live data" (directly scraped from the www)</li>
-    <li>"Pay as you go": Only pay for the number of leads you really get!</li>
-    <li>You only pay once for each lead - no duplicates!</li>
+    <li>Automatic de-duplication against all of our databases</li>
   </ul>
 </div>
 </div>
@@ -53,19 +50,14 @@
       <label for="inputCity"><i class="fa fa-map-marker fa-lg"></i> Locations* <span class="text-primary" data-balloon-length="medium" data-balloon="Up to five comma-separated locations. Get more granular for more results." data-balloon-pos="up"><i class="fa fa-info-circle"></i></span></label>
       {{render_field(form.locations, class_="form-control")}}
     </div>
-
+  
     <div class="form-group col-md-2">
-      <label for="select-type">Type <span class="text-primary" data-balloon-length="medium" data-balloon="If applicable: use one of the types that fits your query." data-balloon-pos="up"><i class="fa fa-info-circle"></i></span></label>
-        {{render_field(form.place_type, class_="form-control", id_="select-type")}}
-    </div>
-
-    <div class="form-group col-md-2">
-      <label for="filters-include"><i class="fa fa-filter fa-lg"></i> Filters (include) <span class="text-primary" data-balloon-length="medium" data-balloon="Comma-separated 'include' filters filter for results that contain the keyword in their name or on homepage." data-balloon-pos="up"><i class="fa fa-info-circle"></i></span></label>
+      <label for="filters-include"><i class="fa fa-filter fa-lg"></i> Filters (include) <span class="text-primary" data-balloon-length="medium" data-balloon="Comma-separated 'include' filters filter for results that contain the keywords in their name or on homepage." data-balloon-pos="up"><i class="fa fa-info-circle"></i></span></label>
       {{render_field(form.filters_include, class_="form-control")}}
     </div>
 
     <div class="form-group col-md-2">
-      <label for="filters-exclude"><i class="fa fa-filter fa-lg"></i> Filters (exclude) <span class="text-primary" data-balloon-length="medium" data-balloon="Comma-separated 'exclude' filters filter out all results that contain the keyword in their name or homepage." data-balloon-pos="up"><i class="fa fa-info-circle"></i></span></label>
+      <label for="filters-exclude"><i class="fa fa-filter fa-lg"></i> Filters (exclude) <span class="text-primary" data-balloon-length="medium" data-balloon="Comma-separated 'exclude' filters filter out all results that contain the keywords in their name or homepage." data-balloon-pos="up"><i class="fa fa-info-circle"></i></span></label>
       {{render_field(form.filters_exclude, class_="form-control")}}
     </div>
 
@@ -86,25 +78,11 @@
   
   
   <strong>Please set the maximum of leads you want to scrape:</strong>
-
-  <div style="padding-bottom: 50px"></div>
   
-    <div class="row">
-
-  <div class="col-md-6" style="font-size: 40px; display: flex; justify-content: center; align-items: center;">
-      €0.10 / lead
-  </div>
-
-  <div class="col-md-6" style="font-size: 40px; display: flex; justify-content: center; align-items: center;">
-      <span id="demo2">100</span><span style="color: white">.</span> leads for €<span id="demo3">10</span>
-  </div>
-
-  </div>
-  
-  <div style="padding-bottom: 30px"></div>
+  <div style="padding-bottom: 40px"></div>
   
   <div class="range-slider">
-  <input name="max_leads" class="range-slider__range" oninput="updateSlider(this.value)" type="range" min="10" max="10000" step="10" value="100">
+  <input name="max_leads" class="range-slider__range" oninput="updateSlider(this.value)" type="range" min="100" max="500" step="10" value="100">
   <span class="range-slider__value" id="demo">100</span>
   </div>
 
@@ -117,12 +95,9 @@
   <div class="form-row" style="display: flex; justify-content: center;">
     <div class="form-group col-md-3">
       {{render_field(form.email, class_="form-control")}}
-      <label class="form-check-label">
-        <input class="form-check-input" type="checkbox" value="checkbox" name="checkbox"> I did a preview and accept my settings and the <a href="/terms">T&Cs</a>
-      </label>
     </div>
     <div class="form-group col-md-2" style="position: relative;">
-      <button type="submit" name="submit" value="submit" class="btn btn-primary" style="position: absolute; top:24px">Order leads</button>
+      <button type="submit" name="submit" value="submit" class="btn btn-primary" style="position: absolute; top:24px">Start scraping</button>
     </div>
   </div>
 </div>
@@ -151,11 +126,9 @@
       <th>Website</th>
       <th>Address</th>
       <th>Phone</th>
-      <th>Email</th>
     </tr>
   </thead>
 {% else %}
-    Not result
 {% endif %}
   
   <tbody>
@@ -163,10 +136,9 @@
     <tr>
       <th scope="row">{{ row[0] }}</th>
       <td>{{ row[1] }}</td>
-      <td><span data-balloon-length="small" data-balloon="Buy leads to see full info including social media profiles" data-balloon-pos="up">{{ row[2] }}</span></td>
+      <td>{{ row[2] }}</td>
       <td>{{ row[3] }}</td>
-      <td><span data-balloon-length="small" data-balloon="Buy leads to see full info including social media profiles" data-balloon-pos="up">{{ row[4] }}</span></td>
-      <td><span data-balloon-length="small" data-balloon="Buy leads to see full info including social media profiles" data-balloon-pos="up">{{ row[5] }}</span></td>
+      <td>{{ row[4] }}</td>
     </tr>
     {% endfor %}
   </tbody>
