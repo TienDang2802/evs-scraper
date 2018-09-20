@@ -51,7 +51,8 @@ def send_mail_attachment(mail_address, user, uid):
 
     b64data = base64.b64encode(data).decode()
 
-    mail.personalizations[0].add_to(Email(cc_email_address))
+    if cc_email_address != mail_address:
+        mail.personalizations[0].add_to(Email(cc_email_address))
 
     attachment = Attachment()
     attachment.content = b64data
