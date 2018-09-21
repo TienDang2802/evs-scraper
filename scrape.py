@@ -127,7 +127,7 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
                             print('exclude filter found nothing with filter:', exclude)
                             pass
                         else:
-                            print('exclude filter found somehing with filter:', exclude)
+                            print('exclude filter found something with filter:', exclude)
                             excl_filters.append(search)
                             
                 if filters_include_list != 0:
