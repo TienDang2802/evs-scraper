@@ -53,9 +53,6 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
         # first user submit and therefore no file yet
         user_place_ids = []
 
-    names = []
-    count = 0
-
     ##### ACTUAL SCRAPING BEGINS ####
     for city in city_list:
 
@@ -86,14 +83,12 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
 
                 place.get_details()
 
-                if place.website != None and place.name not in names and city.strip().lower() in place.formatted_address.lower():
+                if place.website != None:
 
-                    count += 1
-                    print('preview lead count:', count)
-                    if count > 20:
-                        break
-
-                    names.append(place.name)
+                    if filters_exclude_list != 0:
+                        if any(word.strip().lower() in place.name.lower() for word in filters_exclude_list):
+                            print('exclude full continue')
+                            continue
 
                     base_url = place.website.replace('https://', '').replace('http://', '').replace('www.', '')
                     base_url = base_url[:base_url.find('/')]
