@@ -20,10 +20,10 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
     filters_exclude_list = [x.strip() for x in filters_exclude_list]
     filters_include_list = filters_include.split(',')
     filters_include_list = [x.strip() for x in filters_include_list]
-    
+
     if filters_exclude == '':
         filters_exclude_list = 0
-        
+
     if filters_include == '':
         filters_include_list = 0
 
@@ -39,7 +39,7 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
     bucket = conn.get_bucket(os.environ['AWS_S3_BUCKET'])
 
     k = Key(bucket)
-    
+
     lead_count = 0
 
     try:
@@ -52,14 +52,17 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
     except:
         # first user submit and therefore no file yet
         user_place_ids = []
-    
+
+    names = []
+    count = 0
+
     ##### ACTUAL SCRAPING BEGINS ####
     for city in city_list:
-        
+
         print('next city of', len(city_list), 'cities')
-            
+
         for query in query_list:
-            
+
             print('next query of', len(query_list), 'queries')
 
             YOUR_API_KEY = os.environ['GP_API_KEY2']
@@ -83,16 +86,18 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
 
                 place.get_details()
 
-                if place.website != None:
-                    
-                    if filters_exclude_list != 0:
-                        if any(word.strip().lower() in place.name.lower() for word in filters_exclude_list):
-                            print('exclude full continue')
-                            continue
+                if place.website != None and place.name not in names and city.strip().lower() in place.formatted_address.lower():
+
+                    count += 1
+                    print('preview lead count:', count)
+                    if count > 20:
+                        break
+
+                    names.append(place.name)
 
                     base_url = place.website.replace('https://', '').replace('http://', '').replace('www.', '')
                     base_url = base_url[:base_url.find('/')]
-                    
+
                     if base_url in user_place_ids:
                         continue
                     else:
@@ -102,7 +107,7 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
 
 
     final_results = []
-    
+
     if filters_exclude_list != 0:
         for result in results:
             if 'http://' in result[1]:
@@ -110,16 +115,16 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
             else:
                 final_results.append(result)
                 continue
-                
+
             try:
                 page = requests.get(result[1])
                 text = page.text
-                
+
                 # FILTERS
-                
+
                 excl_filters = []
                 incl_filters = []
-                
+
                 if filters_exclude_list != 0:
                     for exclude in filters_exclude_list:
                         search = re.search(r'[^"\r\n]*' + str(exclude) + '[^"\r\n]*', text)
@@ -129,7 +134,7 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
                         else:
                             print('exclude filter found something with filter:', exclude)
                             excl_filters.append(search)
-                            
+
                 if filters_include_list != 0:
                     for include in filters_include_list:
                         search = re.search(r'[^"\r\n]*' + str(include) + '[^"\r\n]*', text)
@@ -139,11 +144,11 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
                         else:
                             print('include filter found something with filter:', include)
                             incl_filters.append(search)
-                            
+
                 if filters_exclude_list != 0 and len(excl_filters) > 0:
                     print('exclude full continue')
                     continue
-                    
+
                 if filters_include_list != 0 and len(incl_filters) == 0:
                     print('include full continue')
                     continue
@@ -154,7 +159,7 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
                 lead_count += 1
                 print('Lead count:', lead_count)
                 continue
-                
+
             lead_count += 1
             print('Lead count:', lead_count)
 
@@ -162,7 +167,7 @@ def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
     else:
         final_results = results
 
-                    
+
     # append place.place_ids to user_place_ids on S3 bucket
     with open(str(user) + '.csv', 'w', newline='') as f:
         writer = csv.writer(f)
