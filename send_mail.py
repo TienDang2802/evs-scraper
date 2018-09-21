@@ -21,7 +21,7 @@ def send_mail(to_email_address, subject, body, cc_email_address = None):
     if response.status_code != 202:
         return 'An error occurred: {}'.format(response.body), 500
 
-    print('Sent email {} to {} success'.format(subject, to_email))
+    print('Sent email {} to {} success'.format(subject, to_email_address))
 
 
 def send_mail_attachment(mail_address, user, uid):
