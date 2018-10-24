@@ -50,7 +50,7 @@
       <label for="inputCity"><i class="fa fa-map-marker fa-lg"></i> Locations* <span class="text-primary" data-balloon-length="medium" data-balloon="Up to five comma-separated locations. Get more granular for more results." data-balloon-pos="up"><i class="fa fa-info-circle"></i></span></label>
       {{render_field(form.locations, class_="form-control")}}
     </div>
-  
+
     <div class="form-group col-md-2">
       <label for="filters-include"><i class="fa fa-filter fa-lg"></i> Filters (include) <span class="text-primary" data-balloon-length="medium" data-balloon="Comma-separated 'include' filters filter for results that contain the keywords in their name or on homepage." data-balloon-pos="up"><i class="fa fa-info-circle"></i></span></label>
       {{render_field(form.filters_include, class_="form-control")}}
@@ -75,12 +75,12 @@
 <div style="padding-bottom: 10px"></div>
 
 <div id="order" style="display:none">
-  
-  
+
+
   <strong>Please set the maximum of leads you want to scrape:</strong>
-  
+
   <div style="padding-bottom: 40px"></div>
-  
+
   <div class="range-slider">
   <input name="max_leads" class="range-slider__range" oninput="updateSlider(this.value)" type="range" min="100" max="500" step="10" value="100">
   <span class="range-slider__value" id="demo">100</span>
@@ -118,6 +118,10 @@
 <h2>Preview</h2>
 <span><em>Reveals the first 20 scraping results for the current search settings.</em></span>
 
+    {% if request_method == 'POST' %}
+        <p class="text-info">Total: {{ data | length }} results</p>
+    {% endif %}
+
 <table class="table table-hover table-bordered table">
   <thead>
     <tr>
@@ -128,20 +132,21 @@
       <th>Phone</th>
     </tr>
   </thead>
-{% else %}
 {% endif %}
-  
-  <tbody>
+
+<tbody>
     {% for row in data %}
-    <tr>
-      <th scope="row">{{ row[0] }}</th>
-      <td>{{ row[1] }}</td>
-      <td>{{ row[2] }}</td>
-      <td>{{ row[3] }}</td>
-      <td>{{ row[4] }}</td>
-    </tr>
+        {% if loop.index <= 20 %}
+        <tr>
+          <th scope="row">{{ loop.index }}</th>
+          <td>{{ row[0] }}</td>
+          <td>********</td>
+          <td>{{ row[2] }}</td>
+          <td>********</td>
+        </tr>
+        {% endif %}
     {% endfor %}
-  </tbody>
+</tbody>
 
 </table>
 {% endblock %}

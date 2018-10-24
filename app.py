@@ -11,7 +11,7 @@ from rq import Worker, Queue, Connection
 from worker import conn
 from scrape import scrape
 from send_mail import notify_admin, send_mail_attachment
-
+from scrape import process_filter
 from googleplaces import GooglePlaces, types, lang
 
 import os
@@ -159,61 +159,13 @@ def dashboard():
             city = form.locations.data
             filters_exclude = form.filters_exclude.data
             filters_include = form.filters_include.data
-            max_leads = request.form.get('max_leads') # check if that works
-            
+            user = session['username']
+
             print(session['username'], ' started a preview for ', query, ' in ', city)
-            # prepare data
 
-            data = []
-            place_ids = []
-            names = []
-            count = 0
+            data = process_filter(query, city, filters_exclude, filters_include, user, True)
 
-            YOUR_API_KEY = os.environ['GP_API_KEY1']
-            google_places = GooglePlaces(YOUR_API_KEY)
-
-            query_list = query.split(',')
-            city_list = city.split(',')
-            filters_exclude_list = filters_exclude.replace(' ', '').split(',')
-            filters_include_list = filters_include.replace(' ', '').split(',')
-
-            for city in city_list:
-                if count > 20:
-                    break
-                for query in query_list:
-                    if count > 20:
-                        break
-                    try:
-                        query_result = google_places.nearby_search(keyword=query, radius=int(os.environ['SEARCH_RADIUS']), location=city)
-
-                        for place in query_result.places:
-                            place.get_details()
-
-                            if filters_exclude != '':
-                                if any(word.strip().lower() in place.name.lower() for word in filters_exclude_list):
-                                    continue
-                                        
-                            if filters_include != '':
-                                if any(word.strip().lower() in place.name.lower() for word in filters_include_list):
-                                    pass
-                                else:
-                                    continue
-                                    
-                            if place.website != None and place.name not in names and city.strip().lower() in place.formatted_address.lower():
-                                count += 1
-                                print('preview lead count:', count)
-                                if count > 20:
-                                    break
-                                names.append(place.name)
-                                data.append([str(count), place.name, "********", place.formatted_address, "********", "********"])
-
-                    except Exception as e:
-                        print(e)
-                        flash('An unknown error occured. Please try again in a minute. If the error keeps coming contact an admin.', 'danger')
-                        return render_template('dashboard.html', form=form)
-
-
-            return render_template('dashboard.html', data=data, form=form)
+            return render_template('dashboard.html', data=data, form=form, request_method=request.method)
 
 
     if request.method == 'POST' and 'submit' in request.form:
@@ -234,7 +186,7 @@ def dashboard():
             q = Queue(connection=conn)
 
             q.enqueue(notify_admin, query, city, email, filters_include, filters_exclude, user, max_leads)
-            q.enqueue(scrape, args=(query, city, filters_exclude, filters_include, max_leads, user, uid), timeout=36000)
+            q.enqueue(scrape, args=(query, city, filters_exclude, filters_include, user, uid), timeout=36000)
             q.enqueue(send_mail_attachment, email, user, uid)
 
             cur.close()

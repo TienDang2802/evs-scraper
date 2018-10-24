@@ -1,185 +1,122 @@
 from googleplaces import GooglePlaces, types, lang
-import json
 import csv
 from time import sleep
-import boto
-from boto.s3.key import Key
 import requests
 import sys
 import re
-import os
 from send_mail import *
 
-def scrape(query, city, filters_exclude, filters_include, max_leads, user, uid):
-    results = []
-    results.append(['Name', 'Website URL', 'Phone Number', 'Company owner', 'Lifecycle stage'])
 
+def scrape(query, city, filters_exclude, filters_include, user, uid):
+    results = [['Name', 'Website URL', 'Phone Number', 'Company owner', 'Lifecycle stage']]
+
+    results_process = process_filter(query, city, filters_exclude, filters_include, user)
+
+    if results_process:
+        results += results_process
+        # create file that will be send to user and admin (in BCC)
+        with open(str(user) + str(uid) + '_leads.csv', 'w', newline='') as f:
+            writer = csv.writer(f)
+            for result in results:
+                writer.writerow(result)
+
+
+def process_filter(query, city, filters_exclude, filters_include, user, is_web=False):
+    results = []
     query_list = query.split(',')
     city_list = city.split(',')
-    filters_exclude_list = filters_exclude.split(',')
-    filters_exclude_list = [x.strip() for x in filters_exclude_list]
-    filters_include_list = filters_include.split(',')
-    filters_include_list = [x.strip() for x in filters_include_list]
 
-    if filters_exclude == '':
-        filters_exclude_list = 0
+    filters_exclude_list = []
+    if filters_exclude != '':
+        filters_exclude_list = filters_exclude.split(',')
+        filters_exclude_list = [x.strip() for x in filters_exclude_list]
 
-    if filters_include == '':
-        filters_include_list = 0
+    filters_include_list = []
+    if filters_include != '':
+        filters_include_list = filters_include.split(',')
+        filters_include_list = [x.strip() for x in filters_include_list]
 
-    # load <user>.csv from S3 and append to [] list
+    total_city = len(city_list)
+    print('Total cities: {}'.format(total_city))
 
-    user_place_ids = []
+    radius = int(os.environ.get('SEARCH_RADIUS'))
 
-    boto_key = os.environ['AWS_S3_KEY']
-    boto_s_key = os.environ['AWS_S3_SECRET']
+    google_places_api = GooglePlaces(os.environ['GP_API_KEY1'])
 
-    conn = boto.connect_s3(boto_key, boto_s_key, host=os.environ['AWS_S3_DOMAIN'])
+    query_result = {}
 
-    bucket = conn.get_bucket(os.environ['AWS_S3_BUCKET'])
-
-    k = Key(bucket)
-
-    lead_count = 0
-
-    try:
-        k.key = str(user) + '.csv'
-        k.get_contents_to_filename(str(user) + '.csv')
-        with open(str(user) + '.csv', 'r', errors='ignore') as f:
-            reader = csv.reader(f)
-            for row in reader:
-                user_place_ids.append(row[0])
-    except:
-        # first user submit and therefore no file yet
-        user_place_ids = []
-
-    ##### ACTUAL SCRAPING BEGINS ####
     for city in city_list:
-
-        print('next city of', len(city_list), 'cities')
-
+        print('Processing city: {}'.format(city))
         for query in query_list:
-
-            print('next query of', len(query_list), 'queries')
-
-            YOUR_API_KEY = os.environ['GP_API_KEY2']
-            google_places = GooglePlaces(YOUR_API_KEY)
-
+            print('Processing query string {} of city {}'.format(query, city))
             try:
-                query_result = google_places.nearby_search(keyword=query, radius=int(os.environ.get('SEARCH_RADIUS')), location=city)
+                query_result = google_places_api.nearby_search(keyword=query, radius=radius, location=city)
             except:
                 sleep(30)
                 try:
-                    query_result = google_places.nearby_search(keyword=query, radius=int(os.environ.get('SEARCH_RADIUS')), location=city)
+                    google_places_api2 = GooglePlaces(os.environ['GP_API_KEY2'])
+                    query_result = google_places_api2.nearby_search(keyword=query, radius=radius, location=city)
                 except:
+                    send_error(user)
+
+            if query_result:
+                for place in query_result.places:
+                    place.get_details()
+                    if place.website:
+                        if filters_exclude_list:
+                            if any(word.strip().lower() in place.name.lower() for word in filters_exclude_list):
+                                print('exclude full continue')
+                                continue
+
+                    if not place.website or 'https' in place.website:
+                        results.append(render_result(place, is_web))
+                        continue
+
+                    # filter
+                    page_content_text = ''
                     try:
-                        YOUR_API_KEY = os.environ['GP_API_KEY1']
-                        google_places = GooglePlaces(YOUR_API_KEY)
-                        query_result = google_places.nearby_search(keyword=query, radius=int(os.environ.get('SEARCH_RADIUS')), location=city)
-                    except:
-                        send_error(user)
+                        page_content = requests.get(place.website)
+                        page_content_text = page_content.text
+                    except Exception as e:
+                        print('Error on line {}'.format(sys.exc_info()[-1].tb_lineno), type(e).__name__, e)
+                        results.append(render_result(place, is_web))
 
-            for place in query_result.places:
-
-                place.get_details()
-
-                if place.website != None:
-
-                    if filters_exclude_list != 0:
-                        if any(word.strip().lower() in place.name.lower() for word in filters_exclude_list):
-                            print('exclude full continue')
+                    if page_content_text and filters_exclude_list:
+                        filter_exclude = is_filters_exclude(page_content_text, filters_exclude_list)
+                        if filter_exclude:
                             continue
 
-                    base_url = place.website.replace('https://', '').replace('http://', '').replace('www.', '')
-                    base_url = base_url[:base_url.find('/')]
+                    if page_content_text and filters_include_list:
+                        filter_include = is_filters_include(page_content_text, filters_include_list)
+                        if not filter_include:
+                            continue
 
-                    if base_url in user_place_ids:
-                        continue
-                    else:
-                        user_place_ids.append(base_url)
+                    results.append(render_result(place, is_web))
 
-                    results.append([place.name, place.website, place.international_phone_number, 'duarte.lucena@everystay.com', 'Subscriber'])
-
-
-    final_results = []
-
-    if filters_exclude_list != 0:
-        for result in results:
-            if 'http://' in result[1]:
-                pass
-            else:
-                final_results.append(result)
-                continue
-
-            try:
-                page = requests.get(result[1])
-                text = page.text
-
-                # FILTERS
-
-                excl_filters = []
-                incl_filters = []
-
-                if filters_exclude_list != 0:
-                    for exclude in filters_exclude_list:
-                        search = re.search(r'[^"\r\n]*' + str(exclude) + '[^"\r\n]*', text)
-                        if search == None:
-                            print('exclude filter found nothing with filter:', exclude)
-                            pass
-                        else:
-                            print('exclude filter found something with filter:', exclude)
-                            excl_filters.append(search)
-
-                if filters_include_list != 0:
-                    for include in filters_include_list:
-                        search = re.search(r'[^"\r\n]*' + str(include) + '[^"\r\n]*', text)
-                        if search == None:
-                            print('include filter found nothing with filter:', include)
-                            pass
-                        else:
-                            print('include filter found something with filter:', include)
-                            incl_filters.append(search)
-
-                if filters_exclude_list != 0 and len(excl_filters) > 0:
-                    print('exclude full continue')
-                    continue
-
-                if filters_include_list != 0 and len(incl_filters) == 0:
-                    print('include full continue')
-                    continue
-
-            except Exception as e:
-                print('Error on line {}'.format(sys.exc_info()[-1].tb_lineno), type(e).__name__, e)
-                final_results.append(result)
-                lead_count += 1
-                print('Lead count:', lead_count)
-                continue
-
-            lead_count += 1
-            print('Lead count:', lead_count)
-
-            final_results.append(result)
-    else:
-        final_results = results
+    return results
 
 
-    # append place.place_ids to user_place_ids on S3 bucket
-    with open(str(user) + '.csv', 'w', newline='') as f:
-        writer = csv.writer(f)
-        for result in user_place_ids:
-            writer.writerow([result])
+def render_result(place, is_web=False):
+    if is_web:
+        return [place.name, place.website, place.formatted_address, place.international_phone_number, '']
+    return [place.name, place.website, place.international_phone_number, 'duarte.lucena@everystay.com',
+            'Subscriber']
 
-    # send to S3
-    k.key = str(user) + '.csv'
-    k.set_contents_from_filename(str(user) + '.csv')
 
-    print("Sent to S3")
+def is_filters_exclude(place_website_content, filters_exclude_list):
+    for exclude in filters_exclude_list:
+        search = re.search(r'[^"\r\n]*' + str(exclude) + '[^"\r\n]*', place_website_content)
+        if search:
+            return True
+    return False
 
-    # create file that will be send to user and admin (in BCC)
-    with open(str(user) + str(uid) + '_leads.csv', 'w', newline='') as f:
-        writer = csv.writer(f)
-        for result in final_results:
-            writer.writerow(result)
+
+def is_filters_include(place_website_content, filters_include_list):
+    for include in filters_include_list:
+        search = re.search(r'[^"\r\n]*' + str(include) + '[^"\r\n]*', place_website_content)
+        if search:
+            return True
+    return False
 
 
 def send_error(user):
@@ -188,6 +125,7 @@ def send_error(user):
     subject = '{user} had a FATAL ERROR!'.format(user=str(user))
     body = "Look into heroku logs and notify user"
     send_mail(toaddr, subject, body)
+
 
 if __name__ == '__main__':
     scrape()

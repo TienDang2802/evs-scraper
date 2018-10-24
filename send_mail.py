@@ -4,7 +4,8 @@ from sendgrid.helpers.mail import *
 from sendgrid import *
 import base64
 
-def send_mail(to_email_address, subject, body, cc_email_address = None):
+
+def send_mail(to_email_address, subject, body, cc_email_address=None):
     sg = sendgrid.SendGridAPIClient(apikey=os.environ.get('SENDGRID_API_KEY'))
 
     from_email = Email(os.environ.get('SENDER_EMAIL'))
@@ -35,7 +36,11 @@ def send_mail_attachment(mail_address, user, uid):
 
     file_name = str(user) + str(uid) + '_leads.csv'
 
-    # count how many leads are in the csv
+    if not os.path.exists(file_name):
+        print('File {} does not exists'.format(file_name))
+        return
+
+        # count how many leads are in the csv
     with open(file_name) as csvfile:
         row_count = sum(1 for row in csvfile)
         row_count = row_count - 1
@@ -64,6 +69,9 @@ def send_mail_attachment(mail_address, user, uid):
     if response.status_code != 202:
         return 'An error occurred: {}'.format(response.body), 500
 
+    os.remove(file_name)
+    print('Delete file {} successful'.format(file_name))
+
     print('Sent email attachment to {} success'.format(mail_address))
 
 
@@ -72,7 +80,8 @@ def notify_admin(query, city, email, filters_include, filters_exclude, user, max
 
     subject = str(user) + " requested " + str(max_leads) + " leads"
 
-    body = "Query: " + str(query) + "\nCity: " + str(city) + "\nEmail: " + str(email) + "\nInclude: " + str(filters_include) + "\nExclude: " + str(filters_exclude) + "\n\nCheck heroku worker logs"
+    body = "Query: " + str(query) + "\nCity: " + str(city) + "\nEmail: " + str(email) + "\nInclude: " + str(
+        filters_include) + "\nExclude: " + str(filters_exclude) + "\n\nCheck heroku worker logs"
 
     send_mail(to_addr, subject, body)
 
