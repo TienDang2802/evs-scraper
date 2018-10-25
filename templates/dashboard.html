@@ -118,10 +118,6 @@
 <h2>Preview</h2>
 <span><em>Reveals the first 20 scraping results for the current search settings.</em></span>
 
-    {% if request_method == 'POST' %}
-        <p class="text-info">Total: {{ data | length }} results</p>
-    {% endif %}
-
 <table class="table table-hover table-bordered table">
   <thead>
     <tr>

@@ -1,4 +1,5 @@
 from googleplaces import GooglePlaces, types, lang
+import googlemaps
 import csv
 from time import sleep
 import requests
@@ -43,55 +44,75 @@ def process_filter(query, city, filters_exclude, filters_include, user, is_web=F
 
     google_places_api = GooglePlaces(os.environ['GP_API_KEY1'])
 
+    gmaps = googlemaps.Client(key=os.environ['GP_API_KEY1'])
+
     query_result = {}
 
     for city in city_list:
         print('Processing city: {}'.format(city))
         for query in query_list:
-            print('Processing query string {} of city {}'.format(query, city))
+            print('Processing query string {} of city {} with radius={}'.format(query, city, radius))
+
+            geocode_result = gmaps.geocode(city)
+            latlng = '{}, {}'.format(geocode_result[0]['geometry']['location']['lat'],
+                                     geocode_result[0]['geometry']['location']['lng'])
             try:
-                query_result = google_places_api.nearby_search(keyword=query, radius=radius, location=city)
+                query_result = google_places_api.nearby_search(keyword=query, radius=radius, location=latlng)
             except:
                 sleep(30)
                 try:
                     google_places_api2 = GooglePlaces(os.environ['GP_API_KEY2'])
-                    query_result = google_places_api2.nearby_search(keyword=query, radius=radius, location=city)
+                    query_result = google_places_api2.nearby_search(keyword=query, radius=radius, location=latlng)
                 except:
                     send_error(user)
 
-            if query_result:
-                for place in query_result.places:
-                    place.get_details()
-                    if place.website:
-                        if filters_exclude_list:
-                            if any(word.strip().lower() in place.name.lower() for word in filters_exclude_list):
-                                print('exclude full continue')
+            while True:
+                if query_result:
+                    for place in query_result.places:
+                        place.get_details()
+                        if place.website:
+                            if filters_exclude_list:
+                                if any(word.strip().lower() in place.name.lower() for word in filters_exclude_list):
+                                    print('exclude full continue')
+                                    continue
+
+                        if not place.website or 'https' in place.website:
+                            results.append(render_result(place, is_web))
+                            continue
+
+                        # filter
+                        page_content_text = ''
+                        try:
+                            page_content = requests.get(place.website)
+                            page_content_text = page_content.text
+                        except Exception as e:
+                            print('Error on line {}'.format(sys.exc_info()[-1].tb_lineno), type(e).__name__, e)
+                            results.append(render_result(place, is_web))
+
+                        if page_content_text and filters_exclude_list:
+                            filter_exclude = is_filters_exclude(page_content_text, filters_exclude_list)
+                            if filter_exclude:
+                                print('Filter exclude')
                                 continue
 
-                    if not place.website or 'https' in place.website:
-                        results.append(render_result(place, is_web))
-                        continue
+                        if page_content_text and filters_include_list:
+                            filter_include = is_filters_include(page_content_text, filters_include_list)
+                            if not filter_include:
+                                print('Filter include')
+                                continue
 
-                    # filter
-                    page_content_text = ''
-                    try:
-                        page_content = requests.get(place.website)
-                        page_content_text = page_content.text
-                    except Exception as e:
-                        print('Error on line {}'.format(sys.exc_info()[-1].tb_lineno), type(e).__name__, e)
                         results.append(render_result(place, is_web))
 
-                    if page_content_text and filters_exclude_list:
-                        filter_exclude = is_filters_exclude(page_content_text, filters_exclude_list)
-                        if filter_exclude:
-                            continue
+                if not query_result.has_next_page_token or is_web:
+                    break
 
-                    if page_content_text and filters_include_list:
-                        filter_include = is_filters_include(page_content_text, filters_include_list)
-                        if not filter_include:
-                            continue
+                sleep(30)
 
-                    results.append(render_result(place, is_web))
+                print('Next page token: {}'.format(query_result.next_page_token))
+
+                query_result = google_places_api.nearby_search(
+                    pagetoken=query_result.next_page_token
+                )
 
     return results
 
