@@ -9,7 +9,7 @@ from send_mail import *
 
 
 def scrape(query, city, filters_exclude, filters_include, user, uid):
-    results = [['Name', 'Website URL', 'Phone Number', 'Company owner', 'Lifecycle stage']]
+    results = [['Name', 'Company Domain', 'Phone Number', 'Company owner', 'Lifecycle stage', 'Country', 'City']]
 
     results_process = process_filter(query, city, filters_exclude, filters_include, user)
 
@@ -120,8 +120,15 @@ def process_filter(query, city, filters_exclude, filters_include, user, is_web=F
 def render_result(place, is_web=False):
     if is_web:
         return [place.name, place.website, place.formatted_address, place.international_phone_number, '']
-    return [place.name, place.website, place.international_phone_number, 'duarte.lucena@everystay.com',
-            'Subscriber']
+    return [
+        place.name,
+        place.website,
+        place.international_phone_number,
+        os.environ.get('NOTIFY_EMAIL'),
+        'Subscriber',
+        '',
+        ''
+    ]
 
 
 def is_filters_exclude(place_website_content, filters_exclude_list):
